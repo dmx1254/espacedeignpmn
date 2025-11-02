@@ -71,18 +71,15 @@ export function UsersList() {
     try {
       // Note: La suppression de l'utilisateur dans auth.users doit être faite via l'API Admin
       // Pour l'instant, on supprime juste le profil
-      const { error, data: userProfile } = await supabase
+      const { error } = await supabase
         .from("user_profiles")
         .delete()
         .eq("id", selectedUser.id)
-        .single();
 
       if (error) {
         console.error("Error deleting user:", error);
         throw error;
       }
-
-      console.log("userProfile", userProfile);
 
       setDeleteDialogOpen(false);
       setSelectedUser(null);
