@@ -1,135 +1,158 @@
-'use client'
+"use client";
 
-import { useEffect, useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Pencil, Trash2, Plus, MessageSquare, Building2, User as UserIcon, MoreVertical } from 'lucide-react'
-import { CreateUserDialog } from './create-user-dialog'
-import { EditUserDialog } from './edit-user-dialog'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useEffect, useState, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Pencil,
+  Trash2,
+  Plus,
+  MessageSquare,
+  Building2,
+  User as UserIcon,
+  MoreVertical,
+} from "lucide-react";
+import { CreateUserDialog } from "./create-user-dialog";
+import { EditUserDialog } from "./edit-user-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import type { Database } from '@/lib/supabase/database.types'
-import { cn } from '@/lib/utils'
+} from "@/components/ui/dropdown-menu";
+import type { Database } from "@/lib/supabase/database.types";
+import { cn } from "@/lib/utils";
 
-type User = Database['public']['Tables']['user_profiles']['Row']
+type User = Database["public"]["Tables"]["user_profiles"]["Row"];
 
 export function UsersList() {
-  const [users, setUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const supabase = createClient()
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const supabase = createClient();
 
   const loadUsers = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .order('created_at', { ascending: false })
+        .from("user_profiles")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-      if (error) throw error
-      setUsers(data || [])
+      if (error) throw error;
+      setUsers(data || []);
     } catch (error) {
-      console.error('Error loading users:', error)
+      console.error("Error loading users:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [supabase])
+  }, [supabase]);
 
   useEffect(() => {
-    loadUsers()
-  }, [loadUsers])
+    loadUsers();
+  }, [loadUsers]);
 
   const handleDelete = async () => {
-    if (!selectedUser) return
+    if (!selectedUser) return;
 
     try {
       // Note: La suppression de l'utilisateur dans auth.users doit être faite via l'API Admin
       // Pour l'instant, on supprime juste le profil
-      const { error } = await supabase
-        .from('user_profiles')
+      const { error, data: userProfile } = await supabase
+        .from("user_profiles")
         .delete()
-        .eq('id', selectedUser.id)
+        .eq("id", selectedUser.id)
+        .single();
 
-      if (error) throw error
+      if (error) {
+        console.error("Error deleting user:", error);
+        throw error;
+      }
 
-      setDeleteDialogOpen(false)
-      setSelectedUser(null)
-      loadUsers()
+      console.log("userProfile", userProfile);
+
+      setDeleteDialogOpen(false);
+      setSelectedUser(null);
+      loadUsers();
     } catch (error) {
-      console.error('Error deleting user:', error)
+      console.error("Error deleting user:", error);
     }
-  }
+  };
 
   const handleCreateConversation = async (userId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
 
       // Récupérer le rôle de l'utilisateur actuel
       const { data: currentUserProfile } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
+        .from("user_profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
 
       // Utiliser la fonction utilitaire pour créer ou trouver la conversation
-      const { getOrCreateIndividualConversation } = await import('@/lib/conversation-utils')
+      const { getOrCreateIndividualConversation } = await import(
+        "@/lib/conversation-utils"
+      );
       const conversationId = await getOrCreateIndividualConversation(
         supabase,
         user.id,
         userId,
-        currentUserProfile?.role as 'ADMIN' | 'USER'
-      )
+        currentUserProfile?.role as "ADMIN" | "USER"
+      );
 
       if (conversationId) {
-        window.location.href = `/messages?conversation=${conversationId}`
+        window.location.href = `/messages?conversation=${conversationId}`;
       }
     } catch (error) {
-      console.error('Error creating conversation:', error)
-      alert('Erreur lors de la création de la conversation')
+      console.error("Error creating conversation:", error);
+      alert("Erreur lors de la création de la conversation");
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-muted-foreground">Chargement...</div>
       </div>
-    )
+    );
   }
 
   const getInitials = (name: string | null) => {
-    if (!name) return 'U'
+    if (!name) return "U";
     return name
-      .split(' ')
+      .split(" ")
       .map((n) => n[0])
-      .join('')
+      .join("")
       .toUpperCase()
-      .slice(0, 2)
-  }
+      .slice(0, 2);
+  };
 
   return (
     <>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Total: {users.length} utilisateur{users.length > 1 ? 's' : ''}</p>
+          <p className="text-sm text-muted-foreground">
+            Total: {users.length} utilisateur{users.length > 1 ? "s" : ""}
+          </p>
         </div>
-        <Button 
-          onClick={() => setCreateDialogOpen(true)}
-          className="shadow-sm"
-        >
+        <Button onClick={() => setCreateDialogOpen(true)} className="shadow-sm">
           <Plus className="mr-2 h-4 w-4" />
           Ajouter un utilisateur
         </Button>
@@ -139,26 +162,30 @@ export function UsersList() {
         <Card className="p-12 text-center border-2 border-dashed">
           <UserIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
           <p className="text-muted-foreground font-medium">Aucun utilisateur</p>
-          <p className="text-sm text-muted-foreground mt-1">Commencez par ajouter un utilisateur</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Commencez par ajouter un utilisateur
+          </p>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {users.map((user) => (
-            <Card 
-              key={user.id} 
+            <Card
+              key={user.id}
               className={cn(
                 "relative overflow-hidden border-2 shadow-md hover:shadow-xl transition-all duration-300 group bg-white",
                 "hover:scale-[1.02]"
               )}
             >
               {/* Gradient background effect on hover */}
-              <div className={cn(
-                "absolute inset-0 bg-linear-to-br opacity-0 group-hover:opacity-5 transition-opacity duration-300",
-                user.role === 'ADMIN' 
-                  ? "from-primary to-primary/80" 
-                  : "from-blue-500 to-blue-400"
-              )} />
-              
+              <div
+                className={cn(
+                  "absolute inset-0 bg-linear-to-br opacity-0 group-hover:opacity-5 transition-opacity duration-300",
+                  user.role === "ADMIN"
+                    ? "from-primary to-primary/80"
+                    : "from-blue-500 to-blue-400"
+                )}
+              />
+
               <div className="relative p-5">
                 {/* Header avec avatar et actions */}
                 <div className="flex items-start justify-between mb-4">
@@ -166,18 +193,20 @@ export function UsersList() {
                     <Avatar className="h-14 w-14 ring-2 ring-border group-hover:ring-primary/30 transition-all duration-300">
                       {user.avatar_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img 
-                          src={user.avatar_url} 
-                          alt={user.full_name || ''} 
+                        <img
+                          src={user.avatar_url}
+                          alt={user.full_name || ""}
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <AvatarFallback className={cn(
-                          "text-base font-semibold bg-linear-to-br",
-                          user.role === 'ADMIN'
-                            ? "from-primary to-primary/80 text-primary-foreground"
-                            : "from-blue-500 to-blue-400 text-white"
-                        )}>
+                        <AvatarFallback
+                          className={cn(
+                            "text-base font-semibold bg-linear-to-br",
+                            user.role === "ADMIN"
+                              ? "from-primary to-primary/80 text-primary-foreground"
+                              : "from-blue-500 to-blue-400 text-white"
+                          )}
+                        >
                           {getInitials(user.full_name)}
                         </AvatarFallback>
                       )}
@@ -185,18 +214,20 @@ export function UsersList() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-semibold text-base text-foreground truncate">
-                          {user.full_name || 'Utilisateur'}
+                          {user.full_name || "Utilisateur"}
                         </h3>
                       </div>
-                      <Badge 
-                        variant={user.role === 'ADMIN' ? 'default' : 'secondary'} 
+                      <Badge
+                        variant={
+                          user.role === "ADMIN" ? "default" : "secondary"
+                        }
                         className="text-xs font-medium shadow-sm"
                       >
-                        {user.role === 'ADMIN' ? '👑 ADMIN' : '👤 USER'}
+                        {user.role === "ADMIN" ? "👑 ADMIN" : "👤 USER"}
                       </Badge>
                     </div>
                   </div>
-                  
+
                   {/* Menu dropdown pour les actions */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -219,8 +250,8 @@ export function UsersList() {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={() => {
-                          setSelectedUser(user)
-                          setEditDialogOpen(true)
+                          setSelectedUser(user);
+                          setEditDialogOpen(true);
                         }}
                         className="cursor-pointer"
                       >
@@ -229,8 +260,8 @@ export function UsersList() {
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => {
-                          setSelectedUser(user)
-                          setDeleteDialogOpen(true)
+                          setSelectedUser(user);
+                          setDeleteDialogOpen(true);
                         }}
                         className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
                       >
@@ -248,8 +279,12 @@ export function UsersList() {
                       <Building2 className="h-3.5 w-3.5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-muted-foreground">Entreprise</p>
-                      <p className="text-sm font-medium text-foreground truncate">{user.business}</p>
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Entreprise
+                      </p>
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {user.business}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -269,8 +304,8 @@ export function UsersList() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      setSelectedUser(user)
-                      setEditDialogOpen(true)
+                      setSelectedUser(user);
+                      setEditDialogOpen(true);
                     }}
                     className="flex-1 text-xs h-8 hover:bg-primary/5 hover:border-primary/50 transition-all"
                   >
@@ -284,7 +319,11 @@ export function UsersList() {
         </div>
       )}
 
-      <CreateUserDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} onSuccess={loadUsers} />
+      <CreateUserDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onSuccess={loadUsers}
+      />
       {selectedUser && (
         <>
           <EditUserDialog
@@ -298,15 +337,24 @@ export function UsersList() {
               <DialogHeader>
                 <DialogTitle>Supprimer &apos;utilisateur</DialogTitle>
                 <DialogDescription>
-                  Êtes-vous sûr de vouloir supprimer {selectedUser.full_name || 'cet utilisateur'} ?
-                  Cette action est irréversible.
+                  Êtes-vous sûr de vouloir supprimer{" "}
+                  {selectedUser.full_name || "cet utilisateur"} ? Cette action
+                  est irréversible.
                 </DialogDescription>
               </DialogHeader>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                <Button
+                  variant="outline"
+                  className="cursor-pointer"
+                  onClick={() => setDeleteDialogOpen(false)}
+                >
                   Annuler
                 </Button>
-                <Button variant="destructive" onClick={handleDelete}>
+                <Button
+                  variant="destructive"
+                  className="cursor-pointer"
+                  onClick={handleDelete}
+                >
                   Supprimer
                 </Button>
               </div>
@@ -315,5 +363,5 @@ export function UsersList() {
         </>
       )}
     </>
-  )
+  );
 }
