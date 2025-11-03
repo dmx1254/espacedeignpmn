@@ -6,10 +6,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Paperclip, Send, X, Trash2 } from "lucide-react";
+import { Paperclip, Send, X, Trash2, Download, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/lib/supabase/database.types";
+import Image from "next/image";
 
 type Message = Database["public"]["Tables"]["messages"]["Row"] & {
   sender: {
@@ -40,6 +41,7 @@ export function MessageChat({
   role,
   onBack,
 }: MessageChatProps) {
+  const [isFileDownloading, setIsFileDownloading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [content, setContent] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -330,6 +332,38 @@ export function MessageChat({
     return true;
   };
 
+  const downloadFile = async (file: {
+    file_name: string;
+    file_path: string;
+  }) => {
+    try {
+      setIsFileDownloading(true);
+      const fileUrl = getFileUrl(file.file_path);
+
+      // Récupérer le fichier comme blob
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+
+      // Créer un URL local pour le blob
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      // Télécharger
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = file.file_name;
+      document.body.appendChild(link);
+      link.click();
+
+      // Nettoyer
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Erreur lors du téléchargement:", error);
+    } finally {
+      setIsFileDownloading(false);
+    }
+  };
+
   return (
     <div className="flex h-full w-full flex-col">
       {/* Header */}
@@ -431,40 +465,77 @@ export function MessageChat({
                                   alt={file.file_name}
                                   className="max-w-xs rounded-lg object-cover"
                                 />
+                                <button
+                                  onClick={() => downloadFile(file)}
+                                  className="absolute flex items-center gap-2 cursor-pointer z-40 bottom-0 left-0 bg-white text-black p-2 rounded-lg transition-all duration-300 hover:bg-gray-200"
+                                  disabled={isFileDownloading}
+                                >
+                                  {isFileDownloading ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <Download className="h-3 w-3" />{" "}
+                                      <span className="text-xs">
+                                        Télécharger
+                                      </span>
+                                    </>
+                                  )}
+                                </button>
                               </div>
                             );
                           }
 
                           if (file.file_type === "PDF") {
+                            console.log("fileUrl", fileUrl);
                             return (
-                              <a
+                              <button
                                 key={file.id}
-                                href={fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block rounded-lg border bg-white p-2 hover:bg-muted mt-2"
+                                onClick={() => downloadFile(file)}
+                                className={cn(
+                                  "mt-2 flex items-center gap-2 cursor-pointer z-40 text-black rounded-lg transition-all duration-300",
+                                  isFileDownloading &&
+                                    "opacity-50 cursor-not-allowed"
+                                )}
+                                disabled={isFileDownloading}
                               >
-                                <div className="flex items-center gap-2">
-                                  <span className="text-lg">📄</span>
-                                  <span className="text-sm font-medium truncate">
-                                    {file.file_name}
-                                  </span>
-                                </div>
-                              </a>
+                                <Image
+                                  src="/pdf.png"
+                                  alt="PDF"
+                                  width={50}
+                                  height={50}
+                                  className="object-cover"
+                                />
+                              </button>
                             );
                           }
-
                           if (file.file_type === "VIDEO") {
                             return (
-                              <video
-                                key={file.id}
-                                src={fileUrl}
-                                controls
-                                className="max-w-md rounded-lg mt-2"
-                              >
-                                Votre navigateur ne supporte pas la lecture
-                                vidéo.
-                              </video>
+                              <div key={file.id} className="relative">
+                                <button
+                                  onClick={() => downloadFile(file)}
+                                  className="absolute flex items-center gap-2 cursor-pointer z-40 bottom-0 left-0 bg-white text-black p-2 rounded-lg transition-all duration-300 hover:bg-gray-200"
+                                  disabled={isFileDownloading}
+                                >
+                                  {isFileDownloading ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <Download className="h-3 w-3" />{" "}
+                                      <span className="text-xs">
+                                        Télécharger
+                                      </span>
+                                    </>
+                                  )}
+                                </button>
+                                <video
+                                  src={fileUrl}
+                                  controls
+                                  className="max-w-md rounded-lg mt-2 object-cover"
+                                >
+                                  Votre navigateur ne supporte pas la lecture
+                                  vidéo.
+                                </video>
+                              </div>
                             );
                           }
 

@@ -21,7 +21,7 @@ export default async function MessagesPage() {
     .single()
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-full">
       <Suspense fallback={<div className="flex h-full w-full items-center justify-center">Chargement...</div>}>
         <MessagesList userId={user.id} role={profile?.role as 'ADMIN' | 'USER'} />
       </Suspense>
