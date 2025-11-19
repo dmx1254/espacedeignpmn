@@ -142,6 +142,8 @@ export function MessageChat({
       return;
     }
 
+    console.log("messagesData", messagesData);
+
     const formattedMessages: Message[] = (messagesData || []).map(
       (msg: {
         id: string;
@@ -285,23 +287,44 @@ export function MessageChat({
       return;
     }
 
+    console.log("messageId", messageId);
+
     try {
       // Supprimer d'abord les fichiers associés du storage
-      const { data: messageFiles } = await supabase
+      const { data: messageFiles, error: messageFilesError } = await supabase
         .from("message_files")
         .select("file_path")
         .eq("message_id", messageId);
 
+      if (messageFilesError) {
+        console.error("Error deleting message files:", messageFilesError);
+        alert("Erreur lors de la suppression des fichiers");
+        return;
+      }
+
       if (messageFiles && messageFiles.length > 0) {
         const filePaths = messageFiles.map((f) => f.file_path);
-        await supabase.storage.from("message-files").remove(filePaths);
+        await supabase
+          .from("message_files")
+          .delete()
+          .eq("message_id", messageId);
+        // await supabase.storage.from("message-files").remove(filePaths);
       }
 
       // Supprimer les références des fichiers en base
-      await supabase.from("message_files").delete().eq("message_id", messageId);
+      const { error: messageFilesDeleteError } = await supabase
+        .from("message_files")
+        .delete()
+        .eq("message_id", messageId);
+
+      if (messageFilesDeleteError) {
+        console.error("Error deleting message files:", messageFilesDeleteError);
+        alert("Erreur lors de la suppression des fichiers");
+        return;
+      }
 
       // Supprimer le message
-      const { error } = await supabase
+      const { data: messageData, error } = await supabase
         .from("messages")
         .delete()
         .eq("id", messageId);
@@ -311,6 +334,9 @@ export function MessageChat({
         alert("Erreur lors de la suppression du message");
         return;
       }
+
+      console.log("messageData", messageData);
+      console.log("error", error);
 
       // Recharger les messages pour mettre à jour l'affichage
       loadMessages();
